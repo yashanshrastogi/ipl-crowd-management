@@ -1,0 +1,47 @@
+version: "3.8"
+
+services:
+  # ── Backend (FastAPI) ──────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      - PORT=8000
+      - APP_ENV=development
+    volumes:
+      - ./backend/app:/app/app  # Hot-reload for development
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - crowd-net
+
+  # ── Frontend (Vite Dev Server) ─────────────────────────────────
+  frontend:
+    image: node:20-slim
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules  # Anonymous volume to preserve node_modules
+    environment:
+      - VITE_FIREBASE_PROJECT_ID=ipl-crowd-mgmt-2026
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - crowd-net
+
+networks:
+  crowd-net:
+    driver: bridge

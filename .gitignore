@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+venv/
+.venv/
+*.egg
+
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+service-account*.json
+
+# Node / Frontend
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# IDE & OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+
+# GCP
+application_default_credentials.json

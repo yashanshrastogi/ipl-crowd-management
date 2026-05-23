@@ -1,0 +1,27 @@
+# ── Core Framework ──
+fastapi==0.115.12
+uvicorn[standard]==0.34.2
+pydantic==2.11.3
+pydantic-settings==2.9.1
+
+# ── Google Cloud Services ──
+google-cloud-firestore==2.22.0
+google-cloud-pubsub==2.29.1
+google-cloud-bigquery==3.34.0
+google-cloud-storage==2.19.0
+
+# ── Google AI / Gemini ──
+google-generativeai==0.8.5
+
+# ── ML / EvacuNet ──
+torch==2.7.0
+numpy==2.2.6
+
+# ── HTTP Client ──
+httpx==0.28.1
+
+# ── Apache Beam (Dataflow pipeline) ──
+apache-beam[gcp]==2.64.0
+
+# ── Linting / Quality ──
+ruff==0.11.12
