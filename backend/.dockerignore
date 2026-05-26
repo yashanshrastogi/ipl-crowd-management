@@ -1,0 +1,18 @@
+# V-17: Prevent sensitive files from being copied into Docker image
+.env
+.env.example
+.env.*
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.git/
+.gitignore
+*.md
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+*.egg-info/
+dist/
+build/

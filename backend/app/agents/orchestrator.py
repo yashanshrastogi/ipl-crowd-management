@@ -5,17 +5,19 @@ Master coordinator powered by the Gemini Enterprise Agent Platform.
 Monitors live Firestore database states and delegates tasks to
 specialised sub-agents when thresholds are broken.
 
-Uses automatic tool execution loops — the model inspects capacities
-and routes crowds autonomously through bound function tools.
+Uses manual tool execution loops — the model proposes tool calls and
+sensitive operations are intercepted for human approval before execution.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from typing import Any
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 from app.config import settings
 from app.services import firestore_service, maps_service
@@ -149,33 +151,39 @@ TOOL_FUNCTIONS = [
     trigger_evacuation_protocol,
 ]
 
+# Tools that require human approval before results are acted upon
+SENSITIVE_TOOLS = {
+    "trigger_evacuation_protocol",
+    "update_dynamic_signage",
+    "activate_strict_protocol",
+}
 
-def _configure_genai() -> None:
-    """Ensure the Gemini SDK is configured with the API key."""
+
+def _get_genai_client() -> genai.Client:
+    """Build a Gemini client from runtime configuration."""
     api_key = settings.google_api_key or os.environ.get("GOOGLE_API_KEY", "")
     if not api_key:
         raise ValueError(
             "GOOGLE_API_KEY environment variable is not set. "
             "The orchestrator agent requires a valid Gemini API key."
         )
-    genai.configure(api_key=api_key)
+    return genai.Client(api_key=api_key)
 
 
-def get_orchestrator_model() -> genai.GenerativeModel:
-    """Build and return a configured Gemini model with bound tools."""
-    _configure_genai()
-    return genai.GenerativeModel(
-        model_name="models/gemini-2.5-flash",
+def get_orchestrator_config() -> types.GenerateContentConfig:
+    """Build Gemini generation config with automatic tool calls disabled."""
+    return types.GenerateContentConfig(
+        systemInstruction=SYSTEM_INSTRUCTION,
         tools=TOOL_FUNCTIONS,
-        system_instruction=SYSTEM_INSTRUCTION,
+        automaticFunctionCalling=types.AutomaticFunctionCallingConfig(disable=True),
     )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Agent Dispatch — Automatic Tool Execution Loop
+# Agent Dispatch — Manual Tool Execution Loop (V-07: no auto function calling)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# Map function names to callables for the automatic execution loop
+# Map function names to callables for the manual execution loop
 _TOOL_MAP: dict[str, Any] = {
     "get_stadium_gate_status": get_stadium_gate_status,
     "update_dynamic_signage": update_dynamic_signage,
@@ -184,11 +192,14 @@ _TOOL_MAP: dict[str, Any] = {
     "trigger_evacuation_protocol": trigger_evacuation_protocol,
 }
 
+# V-06b: Structured input validation constants
+PROMPT_MAX_LENGTH = 2000
+
 
 async def dispatch(prompt: str) -> dict[str, Any]:
     """Send a natural-language directive to the orchestrator agent and
-    execute the full tool-calling loop until the model produces a final
-    text response. Contains prompt validation and tool interception.
+    execute the manual tool-calling loop. Sensitive tools are intercepted
+    and require operator confirmation before execution.
 
     Parameters
     ----------
@@ -200,58 +211,127 @@ async def dispatch(prompt: str) -> dict[str, Any]:
     dict
         Agent response or pending_approval state if sensitive tool triggered.
     """
-    # ── Prompt Injection Guard ──
-    injection_keywords = ["ignore", "override", "bypass", "system instruction", "you are no longer", "ignore previous"]
-    prompt_lower = prompt.lower()
-    if any(keyword in prompt_lower for keyword in injection_keywords):
+    # ── V-06b: Structured input validation (replaces weak keyword blocklist) ──
+    if len(prompt) > PROMPT_MAX_LENGTH:
         return {
             "status": "blocked",
-            "response": "Input directive blocked due to security validation failure (potential instruction override).",
+            "response": f"Prompt exceeds maximum length of {PROMPT_MAX_LENGTH} characters.",
             "tool_calls": [],
         }
 
-    model = get_orchestrator_model()
-    chat = model.start_chat(enable_automatic_function_calling=True)
+    if not prompt.strip():
+        return {
+            "status": "blocked",
+            "response": "Empty prompt provided.",
+            "tool_calls": [],
+        }
+
+    # Reject prompts with non-printable characters (homoglyph / injection vectors)
+    if not all(c.isprintable() or c.isspace() for c in prompt):
+        return {
+            "status": "blocked",
+            "response": "Prompt contains invalid characters.",
+            "tool_calls": [],
+        }
 
     tool_calls_log: list[dict[str, Any]] = []
+    client: genai.Client | None = None
 
-    import asyncio
     try:
-        response = await asyncio.to_thread(chat.send_message, prompt)
+        client = _get_genai_client()
+        config = get_orchestrator_config()
+        contents: list[types.Content] = [
+            types.Content(
+                role="user",
+                parts=[types.Part.from_text(text=prompt)],
+            )
+        ]
 
-        # Log all tool calls that were auto-executed
-        for content in chat.history:
-            for part in content.parts:
-                if fn_call := part.function_call:
-                    tool_calls_log.append({
-                        "function": fn_call.name,
-                        "args": dict(fn_call.args),
-                    })
+        response = await asyncio.to_thread(
+            client.models.generate_content,
+            model="gemini-2.5-flash",
+            contents=contents,
+            config=config,
+        )
 
-        # Intercept and check if any sensitive tool calls were generated
-        for call in tool_calls_log:
-            fn_name = call["function"]
-            if fn_name in ["trigger_evacuation_protocol", "update_dynamic_signage", "activate_strict_protocol"]:
-                return {
-                    "status": "pending_approval",
-                    "action": fn_name,
-                    "args": call["args"],
-                    "response": (
-                        f"The orchestrator agent recommends executing '{fn_name}' "
-                        f"with arguments: {call['args']}. Action requires operator confirmation."
-                    ),
-                    "tool_calls": tool_calls_log,
-                }
+        # Manual tool execution loop — intercept sensitive tools
+        max_iterations = 10  # Guard against infinite loops
+        for _ in range(max_iterations):
+            # Check if the model wants to call functions
+            fn_calls = response.function_calls or []
+
+            if not fn_calls:
+                # No more function calls — model produced a text response
+                break
+
+            # Process each function call
+            fn_responses = []
+            for fn_call in fn_calls:
+                fn_name = fn_call.name
+                fn_args = dict(fn_call.args) if fn_call.args else {}
+
+                tool_calls_log.append({
+                    "function": fn_name,
+                    "args": fn_args,
+                })
+
+                # Intercept sensitive tools — require human approval
+                if fn_name in SENSITIVE_TOOLS:
+                    return {
+                        "status": "pending_approval",
+                        "action": fn_name,
+                        "args": fn_args,
+                        "response": (
+                            f"The orchestrator agent recommends executing '{fn_name}' "
+                            f"with arguments: {fn_args}. Action requires operator confirmation."
+                        ),
+                        "tool_calls": tool_calls_log,
+                    }
+
+                # Execute safe tools
+                if fn_name not in _TOOL_MAP:
+                    logger.warning("Unknown tool requested: %s", fn_name)
+                    result = {"error": f"Unknown tool: {fn_name}"}
+                else:
+                    try:
+                        result = _TOOL_MAP[fn_name](**fn_args)
+                    except Exception:
+                        logger.exception("Tool %s failed", fn_name)
+                        result = {"error": "Tool execution failed"}
+
+                fn_responses.append(
+                    types.Part.from_function_response(
+                        name=fn_name,
+                        response=result if isinstance(result, dict) else {"result": str(result)},
+                    )
+                )
+
+            # Send function results back to the model
+            contents.extend(
+                [
+                    response.candidates[0].content,
+                    types.Content(role="tool", parts=fn_responses),
+                ]
+            )
+            response = await asyncio.to_thread(
+                client.models.generate_content,
+                model="gemini-2.5-flash",
+                contents=contents,
+                config=config,
+            )
 
         return {
             "status": "completed",
-            "response": response.text if response.text else "",
+            "response": response.text or "",
             "tool_calls": tool_calls_log,
         }
-    except Exception as exc:
+    except Exception:
         logger.exception("Orchestrator dispatch failed")
         return {
             "status": "error",
-            "error": str(exc),
+            "error": "An internal error occurred during agent dispatch. Please try again.",
             "tool_calls": tool_calls_log,
         }
+    finally:
+        if client is not None:
+            client.close()

@@ -8,7 +8,11 @@
 
 import { useState, useEffect } from 'react';
 
-export default function EvacuNetAlert({
+export default function EvacuNetAlert(props) {
+  return props.active ? <EvacuNetAlertContent {...props} /> : null;
+}
+
+function EvacuNetAlertContent({
   active = false,
   hazardScore = 0,
   affectedZones = [],
@@ -19,15 +23,9 @@ export default function EvacuNetAlert({
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   useEffect(() => {
-    if (!active) {
-      setElapsedSeconds(0);
-      return;
-    }
-    const timer = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
+    const timer = setInterval(() => setElapsedSeconds((seconds) => seconds + 1), 1000);
     return () => clearInterval(timer);
   }, [active]);
-
-  if (!active) return null;
 
   const minutes = Math.floor(elapsedSeconds / 60);
   const seconds = elapsedSeconds % 60;

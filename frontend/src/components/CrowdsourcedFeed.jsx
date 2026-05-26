@@ -54,9 +54,10 @@ const DEMO_MESSAGES = [
 ];
 
 export default function CrowdsourcedFeed({ messages: externalMessages }) {
-  const [messages, setMessages] = useState(externalMessages || DEMO_MESSAGES);
+  const [localMessages, setLocalMessages] = useState(DEMO_MESSAGES);
   const [input, setInput] = useState('');
   const feedRef = useRef(null);
+  const messages = externalMessages || localMessages;
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -64,11 +65,6 @@ export default function CrowdsourcedFeed({ messages: externalMessages }) {
       feedRef.current.scrollTop = feedRef.current.scrollHeight;
     }
   }, [messages]);
-
-  // Use external messages if provided
-  useEffect(() => {
-    if (externalMessages) setMessages(externalMessages);
-  }, [externalMessages]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -81,7 +77,7 @@ export default function CrowdsourcedFeed({ messages: externalMessages }) {
       text: input.trim(),
       timestamp: new Date().toISOString(),
     };
-    setMessages((prev) => [...prev, newMsg]);
+    setLocalMessages((prev) => [...prev, newMsg]);
     setInput('');
   };
 

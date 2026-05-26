@@ -80,10 +80,10 @@ def compute_pedestrian_route(
             data = resp.json()
     except httpx.HTTPStatusError as exc:
         logger.error("Routes API HTTP error: %s — %s", exc.response.status_code, exc.response.text)
-        return {"error": str(exc), "routes": []}
-    except Exception as exc:
+        return {"error": "Maps routing service returned an error", "routes": []}
+    except Exception:
         logger.exception("Routes API call failed")
-        return {"error": str(exc), "routes": []}
+        return {"error": "Maps routing service is unavailable", "routes": []}
 
     routes = data.get("routes", [])
     return {

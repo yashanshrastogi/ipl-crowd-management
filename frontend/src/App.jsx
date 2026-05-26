@@ -21,7 +21,7 @@ import CrowdsourcedFeed from './components/CrowdsourcedFeed';
 import EvacuNetAlert from './components/EvacuNetAlert';
 
 // Data
-import { GATES, STADIUM } from './utils/constants';
+import { GATES } from './utils/constants';
 
 // ── Simulated real-time data for the prototype ───────────────
 function generateGateMetrics() {
@@ -54,7 +54,7 @@ function App() {
   const [sensorData, setSensorData] = useState(generateSensorData);
   const [evacunetScore, setEvacunetScore] = useState(0.12);
   const [evacuationActive, setEvacuationActive] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState('connected');
+  const connectionStatus = 'connected';
 
   // Compute aggregate density (average across all gates)
   const avgDensity =

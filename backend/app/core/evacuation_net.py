@@ -75,7 +75,7 @@ def _get_model() -> EvacuNet:
     if _model is None:
         _model = EvacuNet()
         if MODEL_WEIGHTS_PATH.exists():
-            _model.load_state_dict(torch.load(MODEL_WEIGHTS_PATH, map_location="cpu"))
+            _model.load_state_dict(torch.load(MODEL_WEIGHTS_PATH, map_location="cpu", weights_only=True))
             logger.info("EvacuNet weights loaded from %s", MODEL_WEIGHTS_PATH)
         else:
             logger.warning(

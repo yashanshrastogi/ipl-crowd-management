@@ -8,7 +8,7 @@ POST /gates/{gate_id}/signage — Update dynamic signage
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.concurrency import run_in_threadpool
 
 from app.config import settings
@@ -16,7 +16,7 @@ from app.core.audit import log_audit_event
 from app.core.crowd_physics import compute_gate_metrics
 from app.core.rate_limiter import limit_general_rate
 from app.core.security import verify_admin_key
-from app.models.crowd import GateMetrics, SignageUpdate
+from app.models.crowd import SignageUpdate
 from app.services import firestore_service
 
 router = APIRouter(prefix="/gates", tags=["gates"])
@@ -26,6 +26,7 @@ router = APIRouter(prefix="/gates", tags=["gates"])
     "",
     summary="Get all gate statuses",
     description="Retrieve live metrics and computed crowd physics for every gate.",
+    dependencies=[Depends(limit_general_rate)],
 )
 async def get_all_gates(stadium_id: str | None = None) -> dict:
     sid = stadium_id or settings.stadium_id
@@ -50,6 +51,7 @@ async def get_all_gates(stadium_id: str | None = None) -> dict:
     "/{gate_id}",
     summary="Get single gate status",
     description="Retrieve detailed metrics for a specific gate.",
+    dependencies=[Depends(limit_general_rate)],
 )
 async def get_gate(gate_id: str, stadium_id: str | None = None) -> dict:
     sid = stadium_id or settings.stadium_id
@@ -112,4 +114,3 @@ async def update_signage(
         "signage_status": "UPDATED",
         "displayed_text": update.message,
     }
-

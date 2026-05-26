@@ -4,7 +4,7 @@ Pydantic schemas for the EvacuNet emergency evacuation subsystem.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 from pydantic import BaseModel, Field
@@ -35,7 +35,7 @@ class EvacuationAssessment(BaseModel):
     """Complete EvacuNet assessment across all zones."""
 
     stadium_id: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     zones: list[ZoneHazard] = Field(default_factory=list)
     overall_probability: float = Field(0.0, ge=0.0, le=1.0)
     should_evacuate: bool = False

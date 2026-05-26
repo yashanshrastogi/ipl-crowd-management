@@ -18,11 +18,16 @@ service cloud.firestore {
         allow write: if isAdmin(); // Only security admin can modify gate configurations
       }
 
-      // Crowdsourced spectator reports rules
+      // Crowdsourced spectator reports rules (V-06: hardened)
       match /reports/{reportId} {
         allow read: if true;
-        // Spectators can create reports; only admin can edit/delete
-        allow create: if request.resource.data.reporter_type == 'spectator';
+        // Spectators can create reports but must be authenticated and fields are validated
+        allow create: if request.auth != null
+          && request.resource.data.reporter_type == 'spectator'
+          && request.resource.data.message is string
+          && request.resource.data.message.size() > 0
+          && request.resource.data.message.size() <= 500
+          && request.resource.data.keys().hasAll(['message', 'reporter_type', 'zone_id']);
         allow update, delete: if isAdmin();
       }
 

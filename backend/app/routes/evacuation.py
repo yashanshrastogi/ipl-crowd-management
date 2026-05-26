@@ -8,8 +8,9 @@ GET  /evacuation/status  — Current evacuation state
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.concurrency import run_in_threadpool
+from pydantic import Field
 
 from app.config import settings
 from app.core.audit import log_audit_event
@@ -29,7 +30,7 @@ router = APIRouter(prefix="/evacuation", tags=["evacuation"])
 class AssessRequest(EvacuationTrigger):
     """Extended request with sensor vectors for assessment."""
 
-    sensor_data: dict[str, SensorVector] = {}
+    sensor_data: dict[str, SensorVector] = Field(default_factory=dict)
 
 
 @router.post(
@@ -39,7 +40,10 @@ class AssessRequest(EvacuationTrigger):
     description="Evaluate all sensor data and return per-zone hazard probabilities.",
     dependencies=[Depends(limit_assessment_rate)],
 )
-async def assess_hazard(request: AssessRequest) -> EvacuationAssessment:
+async def assess_hazard(
+    request: AssessRequest,
+    _admin_key: str = Depends(verify_admin_key),
+) -> EvacuationAssessment:
     """Run the EvacuNet neural network on provided sensor data."""
     stadium_id = request.stadium_id or settings.stadium_id
 
@@ -140,7 +144,6 @@ async def trigger_evacuation(
                 "error": str(exc),
             },
         )
-        from fastapi import HTTPException
         raise HTTPException(
             status_code=500,
             detail="Failed to update evacuation state in database",
@@ -156,9 +159,9 @@ async def trigger_evacuation(
 @router.get(
     "/status",
     summary="Current evacuation state",
+    dependencies=[Depends(limit_general_rate)],
 )
 async def get_status(stadium_id: str | None = None) -> dict:
     sid = stadium_id or settings.stadium_id
     state = await run_in_threadpool(firestore_service.get_evacuation_state, sid)
     return state or {"state": "STANDBY", "stadium_id": sid}
-

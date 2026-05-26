@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     app_env: str = "development"
     log_level: str = "INFO"
     cors_origins: str = "http://localhost:5173,http://localhost:3000"
-    admin_api_key: str = "supersecret-admin-key"
+    admin_api_key: str = ""  # MUST be set via ADMIN_API_KEY env var
 
 
     @property

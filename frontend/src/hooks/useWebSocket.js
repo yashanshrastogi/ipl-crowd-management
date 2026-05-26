@@ -11,7 +11,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-const DEFAULT_URL = `ws://${window.location.hostname}:8000/ws`;
+const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+const DEFAULT_URL = `${WS_PROTOCOL}//${window.location.hostname}:8000/ws`;
 const MAX_RECONNECT_DELAY = 30_000;
 
 /**
@@ -30,11 +31,20 @@ export default function useWebSocket(url = DEFAULT_URL, opts = {}) {
   const wsRef = useRef(null);
   const retriesRef = useRef(0);
   const timerRef = useRef(null);
+  const connectRef = useRef(null);
+  const shouldReconnectRef = useRef(autoConnect);
 
   const connect = useCallback(() => {
+    shouldReconnectRef.current = true;
+    clearTimeout(timerRef.current);
     try {
+      if (wsRef.current) {
+        wsRef.current.onclose = null;
+        wsRef.current.close();
+      }
       const ws = new WebSocket(url);
       wsRef.current = ws;
+      setReadyState(WebSocket.CONNECTING);
 
       ws.onopen = () => {
         setReadyState(WebSocket.OPEN);
@@ -51,13 +61,14 @@ export default function useWebSocket(url = DEFAULT_URL, opts = {}) {
 
       ws.onclose = () => {
         setReadyState(WebSocket.CLOSED);
+        if (!shouldReconnectRef.current) return;
         // Exponential backoff reconnect
         const delay = Math.min(
           reconnectDelay * 2 ** retriesRef.current,
           MAX_RECONNECT_DELAY,
         );
         retriesRef.current += 1;
-        timerRef.current = setTimeout(connect, delay);
+        timerRef.current = setTimeout(() => connectRef.current?.(), delay);
       };
 
       ws.onerror = () => {
@@ -70,6 +81,7 @@ export default function useWebSocket(url = DEFAULT_URL, opts = {}) {
   }, [url, reconnectDelay]);
 
   const disconnect = useCallback(() => {
+    shouldReconnectRef.current = false;
     clearTimeout(timerRef.current);
     if (wsRef.current) {
       wsRef.current.onclose = null; // prevent reconnect
@@ -86,8 +98,19 @@ export default function useWebSocket(url = DEFAULT_URL, opts = {}) {
   }, []);
 
   useEffect(() => {
-    if (autoConnect) connect();
-    return () => disconnect();
+    connectRef.current = connect;
+  }, [connect]);
+
+  useEffect(() => {
+    shouldReconnectRef.current = autoConnect;
+    let startupTimer = null;
+    if (autoConnect) {
+      startupTimer = setTimeout(() => connect(), 0);
+    }
+    return () => {
+      clearTimeout(startupTimer);
+      disconnect();
+    };
   }, [autoConnect, connect, disconnect]);
 
   return { lastMessage, sendMessage, readyState, connect, disconnect };

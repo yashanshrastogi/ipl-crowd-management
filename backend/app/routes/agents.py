@@ -72,6 +72,7 @@ async def dispatch_agent(
 @router.get(
     "/status",
     summary="Agent system status",
+    dependencies=[Depends(limit_general_rate)],
 )
 async def get_status() -> dict:
     return {

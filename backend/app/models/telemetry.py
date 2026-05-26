@@ -5,7 +5,7 @@ Covers the 15 key parameters monitored by the EvacuNet subsystem.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 from pydantic import BaseModel, Field
@@ -38,7 +38,7 @@ class SensorReading(BaseModel):
     value: float = Field(..., description="Raw sensor value in native units")
     unit: str = Field(..., description="SI unit string (e.g. '°C', 'ppm', 'µg/m³')")
     zone_id: str = Field(..., description="Stadium zone identifier")
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class TelemetryPayload(BaseModel):
@@ -47,7 +47,7 @@ class TelemetryPayload(BaseModel):
     stadium_id: str
     gate_id: str | None = None
     zone_id: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     readings: list[SensorReading] = Field(default_factory=list)
 
     # Crowd metrics (optional — may arrive from camera CV pipeline)

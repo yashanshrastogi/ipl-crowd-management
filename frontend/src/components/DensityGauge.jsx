@@ -7,7 +7,7 @@
 
 import { useMemo } from 'react';
 import { densityToPercent, assessDensityRisk } from '../utils/crowdPhysics';
-import { RISK_LEVELS, DENSITY_CRITICAL } from '../utils/constants';
+import { RISK_LEVELS } from '../utils/constants';
 
 const RADIUS = 54;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;

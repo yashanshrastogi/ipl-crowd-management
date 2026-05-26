@@ -75,7 +75,10 @@ export const SENSOR_LABELS = {
 };
 
 // ── API Configuration ────────────────────────────────────────
-export const API_BASE_URL = '/api';
+const configuredApiBaseUrl = import.meta.env.VITE_BACKEND_URL;
+export const API_BASE_URL = configuredApiBaseUrl
+  ? configuredApiBaseUrl.replace(/\/$/, '')
+  : '/api';
 
 // ── Maps Beta Warning ────────────────────────────────────────
 export const MAPS_BETA_WARNING =

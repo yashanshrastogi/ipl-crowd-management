@@ -8,12 +8,12 @@ import { API_BASE_URL } from '../utils/constants';
 class ApiClient {
   constructor(baseUrl = API_BASE_URL) {
     this.baseUrl = baseUrl;
-    this.apiKey = localStorage.getItem('admin_api_key') || 'supersecret-admin-key';
+    this.apiKey = sessionStorage.getItem('admin_api_key') || '';
   }
 
   setApiKey(key) {
     this.apiKey = key;
-    localStorage.setItem('admin_api_key', key);
+    sessionStorage.setItem('admin_api_key', key);
   }
 
   async _fetch(path, options = {}) {

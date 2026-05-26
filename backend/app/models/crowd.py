@@ -4,7 +4,7 @@ Pydantic schemas for crowd flow metrics, gate status, and real-time snapshots.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 from pydantic import BaseModel, Field
@@ -63,14 +63,14 @@ class GateMetrics(BaseModel):
     gate_status: GateStatus = GateStatus.CLEAR
     strict_protocol: StrictProtocol | None = None
 
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class CrowdFlowSnapshot(BaseModel):
     """Aggregate snapshot of all gates at a point in time."""
 
     stadium_id: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     gates: list[GateMetrics] = Field(default_factory=list)
     overall_risk: RiskLevel = RiskLevel.NORMAL
     total_inside: int = 0
@@ -94,5 +94,5 @@ class CrowdsourcedReport(BaseModel):
     zone_id: str = ""
     gate_id: str = ""
     severity: str = "info"  # "info" | "warning" | "critical"
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     acknowledged: bool = False
