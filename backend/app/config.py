@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     stadium_id: str = "chinnaswamy_stadium"
     app_env: str = "development"
     log_level: str = "INFO"
-    cors_origins: str = "http://localhost:5173,http://localhost:3000"
+    cors_origins: str = "http://localhost:5173,http://localhost:3000,https://ipl-crowd-mgmt-2026.web.app,https://ipl-crowd-mgmt-2026.firebaseapp.com"
     admin_api_key: str = ""  # MUST be set via ADMIN_API_KEY env var
 
 

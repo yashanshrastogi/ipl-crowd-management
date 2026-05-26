@@ -53,7 +53,7 @@ const DEMO_MESSAGES = [
   },
 ];
 
-export default function CrowdsourcedFeed({ messages: externalMessages }) {
+export default function CrowdsourcedFeed({ messages: externalMessages, onSubmitReport }) {
   const [localMessages, setLocalMessages] = useState(DEMO_MESSAGES);
   const [input, setInput] = useState('');
   const feedRef = useRef(null);
@@ -70,14 +70,23 @@ export default function CrowdsourcedFeed({ messages: externalMessages }) {
     e.preventDefault();
     if (!input.trim()) return;
 
-    const newMsg = {
-      id: Date.now().toString(),
-      type: 'REPORT',
-      sender: 'You',
-      text: input.trim(),
-      timestamp: new Date().toISOString(),
-    };
-    setLocalMessages((prev) => [...prev, newMsg]);
+    if (onSubmitReport) {
+      onSubmitReport({
+        type: 'REPORT',
+        sender: 'You',
+        text: input.trim(),
+        timestamp: new Date().toISOString(),
+      });
+    } else {
+      const newMsg = {
+        id: Date.now().toString(),
+        type: 'REPORT',
+        sender: 'You',
+        text: input.trim(),
+        timestamp: new Date().toISOString(),
+      };
+      setLocalMessages((prev) => [...prev, newMsg]);
+    }
     setInput('');
   };
 

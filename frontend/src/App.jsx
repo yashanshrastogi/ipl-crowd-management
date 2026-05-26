@@ -7,6 +7,9 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { collection, addDoc } from 'firebase/firestore';
+import { initFirebaseDynamic } from './services/firebase';
+import { useFirestoreCollection } from './hooks/useFirestore';
 import './App.css';
 
 // Components
@@ -76,6 +79,23 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
+  // Real-time Firestore connection for Feed
+  const { data: messagesData } = useFirestoreCollection('feed', { orderByField: 'timestamp', direction: 'asc', limit: 50 });
+  const feedMessages = messagesData && messagesData.length > 0 ? messagesData : undefined;
+
+  const handleReportSubmit = async (report) => {
+    try {
+      const db = await initFirebaseDynamic();
+      if (!db) {
+        console.warn('Firebase not initialized, cannot submit report');
+        return;
+      }
+      await addDoc(collection(db, 'feed'), report);
+    } catch (err) {
+      console.error('Error submitting report:', err);
+    }
+  };
+
   const handleEvacuationAcknowledge = useCallback(() => {
     setEvacuationActive(false);
   }, []);
@@ -111,7 +131,7 @@ function App() {
           </BentoItem>
 
           <BentoItem span="wide" id="panel-feed" className="bento-item-tall">
-            <CrowdsourcedFeed />
+            <CrowdsourcedFeed messages={feedMessages} onSubmitReport={handleReportSubmit} />
           </BentoItem>
 
           {/* ── Row 3: Gate Cards ──────────────────────────── */}

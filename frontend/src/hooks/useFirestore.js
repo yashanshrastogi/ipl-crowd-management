@@ -18,7 +18,7 @@ import {
   orderBy,
   limit as fbLimit,
 } from 'firebase/firestore';
-import db from '../services/firebase';
+import { initFirebaseDynamic } from '../services/firebase';
 
 /**
  * Subscribe to a Firestore collection in real time.
@@ -37,31 +37,52 @@ export function useFirestoreCollection(path, opts = {}) {
   useEffect(() => {
     if (!path) return;
 
-    const constraints = [];
-    if (opts.orderByField) {
-      constraints.push(orderBy(opts.orderByField, opts.direction || 'asc'));
-    }
-    if (opts.limit) {
-      constraints.push(fbLimit(opts.limit));
-    }
+    let unsubscribe = () => {};
+    let isMounted = true;
 
-    const q = query(collection(db, path), ...constraints);
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const docs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-        setData(docs);
+    const setupListener = async () => {
+      const db = await initFirebaseDynamic();
+      if (!isMounted) return;
+      
+      if (!db) {
+        setError(new Error('Firebase DB not initialized'));
         setLoading(false);
-      },
-      (err) => {
-        console.error(`Firestore listener error [${path}]:`, err);
-        setError(err);
-        setLoading(false);
-      },
-    );
+        return;
+      }
 
-    return () => unsubscribe();
+      const constraints = [];
+      if (opts.orderByField) {
+        constraints.push(orderBy(opts.orderByField, opts.direction || 'asc'));
+      }
+      if (opts.limit) {
+        constraints.push(fbLimit(opts.limit));
+      }
+
+      const q = query(collection(db, path), ...constraints);
+
+      unsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          if (!isMounted) return;
+          const docs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+          setData(docs);
+          setLoading(false);
+        },
+        (err) => {
+          if (!isMounted) return;
+          console.error(`Firestore listener error [${path}]:`, err);
+          setError(err);
+          setLoading(false);
+        },
+      );
+    };
+
+    setupListener();
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, [path, opts.orderByField, opts.direction, opts.limit]);
 
   return { data, loading, error };
@@ -80,24 +101,45 @@ export function useFirestoreDoc(path) {
   useEffect(() => {
     if (!path) return;
 
-    const unsubscribe = onSnapshot(
-      doc(db, path),
-      (snapshot) => {
-        if (snapshot.exists()) {
-          setData({ id: snapshot.id, ...snapshot.data() });
-        } else {
-          setData(null);
-        }
-        setLoading(false);
-      },
-      (err) => {
-        console.error(`Firestore doc listener error [${path}]:`, err);
-        setError(err);
-        setLoading(false);
-      },
-    );
+    let unsubscribe = () => {};
+    let isMounted = true;
 
-    return () => unsubscribe();
+    const setupListener = async () => {
+      const db = await initFirebaseDynamic();
+      if (!isMounted) return;
+
+      if (!db) {
+        setError(new Error('Firebase DB not initialized'));
+        setLoading(false);
+        return;
+      }
+
+      unsubscribe = onSnapshot(
+        doc(db, path),
+        (snapshot) => {
+          if (!isMounted) return;
+          if (snapshot.exists()) {
+            setData({ id: snapshot.id, ...snapshot.data() });
+          } else {
+            setData(null);
+          }
+          setLoading(false);
+        },
+        (err) => {
+          if (!isMounted) return;
+          console.error(`Firestore doc listener error [${path}]:`, err);
+          setError(err);
+          setLoading(false);
+        },
+      );
+    };
+
+    setupListener();
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, [path]);
 
   return { data, loading, error };
