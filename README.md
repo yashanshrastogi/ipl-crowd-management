@@ -1,166 +1,300 @@
-# IPL Crowd Dynamics & Agentic Orchestration System
+# IPL Crowd Dynamics and Agentic Orchestration System
 
-> Real-time crowd management platform for IPL stadiums, powered by GCP, Gemini AI, and the EvacuNet emergency subsystem.
+Real-time crowd management prototype for IPL stadium operations. The app combines a FastAPI backend, a React/Vite dashboard, local resilience fallbacks, and optional Google Cloud integrations for Firestore, BigQuery, Pub/Sub, Maps, Gemini, and Cloud Run.
 
-![Status](https://img.shields.io/badge/status-prototype-blue)
-![Python](https://img.shields.io/badge/python-3.11+-blue)
-![React](https://img.shields.io/badge/react-19-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
+## What Is Included
 
-## Overview
+- FastAPI backend for telemetry, gate status, evacuation, agent dispatch, and field reports.
+- React 19 dashboard for live crowd status, reports, evacuation overlays, and admin controls.
+- EvacuNet hazard assessment model using PyTorch.
+- Gemini-powered orchestration tools with manual approval required for sensitive actions.
+- Local development fallbacks when Firestore, BigQuery, Gemini, or Maps credentials are missing.
+- Docker Compose for running backend and frontend together.
+- Cloud Run deployment shortcut with Secret Manager wiring and pre-deploy secret scanning.
 
-An enterprise-grade, event-driven platform for monitoring and managing crowd dynamics at high-density IPL cricket matches. The system combines IoT sensor telemetry, computer-vision crowd density estimation, and Gemini-powered multi-agent orchestration to provide real-time safety decisions.
+## Repository Layout
 
-### Key Features
-
-- **Real-Time Crowd Physics** — Pedestrian flow equations (Q = ρ·v·Wₑ) computed per gate
-- **Multi-Agent Network** — Gemini-powered orchestrator, gate security, and routing agents
-- **EvacuNet Emergency System** — PyTorch neural network for hazard probability assessment
-- **Bento Dashboard** — React 19 glassmorphism UI with live sensor, gate, and map panels
-- **GCP Integration** — Firestore (real-time state), Pub/Sub (telemetry), BigQuery (analytics)
-- **Google Maps** — Gate markers, pedestrian routing, and walking path visualization
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        React Bento Dashboard                     │
-│  ┌─────────┐ ┌──────────┐ ┌──────────┐ ┌────────────────────┐  │
-│  │ Stadium  │ │ Density  │ │  Match   │ │   Crowdsourced     │  │
-│  │   Map    │ │  Gauge   │ │   Day    │ │      Feed          │  │
-│  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────────┬───────────┘  │
-│       └─────────────┴────────────┴────────────────┘              │
-│                        Firestore Listeners                       │
-└──────────────────────────────┬──────────────────────────────────┘
-                               │
-┌──────────────────────────────▼──────────────────────────────────┐
-│                      FastAPI Backend (Cloud Run)                  │
-│  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌──────────────┐ │
-│  │  Telemetry │ │   Gates    │ │ Evacuation │ │    Agents    │ │
-│  │   Router   │ │   Router   │ │   Router   │ │    Router    │ │
-│  └──────┬─────┘ └──────┬─────┘ └──────┬─────┘ └──────┬───────┘ │
-│         │              │              │               │          │
-│  ┌──────▼──────────────▼──────────────▼───────────────▼───────┐ │
-│  │              Core Services Layer                            │ │
-│  │  Crowd Physics │ EvacuNet │ Firestore │ BigQuery │ Maps    │ │
-│  └────────────────────────────────────────────────────────────┘ │
-└──────────────────────────────────────────────────────────────────┘
-```
-
-## Project Structure
-
-```
+```text
 ipl-crowd-management/
-├── backend/
-│   ├── app/
-│   │   ├── agents/          # Gemini-powered multi-agent system
-│   │   ├── core/            # Crowd physics, EvacuNet, thresholds
-│   │   ├── models/          # Pydantic schemas
-│   │   ├── routes/          # FastAPI routers
-│   │   ├── services/        # GCP service integrations
-│   │   ├── config.py        # Environment-based configuration
-│   │   └── main.py          # FastAPI application entry
-│   ├── pipeline/            # Apache Beam / Dataflow pipeline
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   └── .env.example
-├── frontend/
-│   ├── src/
-│   │   ├── components/      # React UI components (9 total)
-│   │   ├── hooks/           # useFirestore, useWebSocket
-│   │   ├── services/        # API client, Firebase SDK
-│   │   ├── utils/           # Constants, crowd physics
-│   │   ├── App.jsx          # Dashboard assembly
-│   │   └── index.css        # Design system
-│   ├── package.json
-│   └── vite.config.js
-├── docker-compose.yml
-└── README.md
+  backend/
+    app/
+      agents/          Gemini orchestration and sub-agents
+      core/            security, rate limits, physics, EvacuNet
+      models/          Pydantic request/response models
+      routes/          FastAPI routers
+      services/        Firestore, BigQuery, Pub/Sub, Maps adapters
+      config.py        environment-based settings
+      main.py          FastAPI app entrypoint
+    pipeline/          Apache Beam/Dataflow pipeline
+    tests/             backend tests
+    .env.example       backend environment template
+    Dockerfile
+    requirements.txt
+  frontend/
+    src/
+      components/
+      hooks/
+      services/
+      utils/
+    package.json
+    vite.config.js
+  scripts/
+    secret_scan.ps1
+  deploy_shortcut.ps1
+  docker-compose.yml
+  firestore.rules
 ```
 
-## Quick Start
+## Prerequisites
 
-### Prerequisites
+- Python 3.11 or newer.
+- Node.js 20 or newer.
+- Docker Desktop, for container and Compose checks.
+- Google Cloud CLI, only for deployment.
+- A Google Cloud project, only for live Firestore, BigQuery, Pub/Sub, Gemini, Maps, or Cloud Run usage.
 
-- **Python 3.11+** and **Node.js 20+**
-- **Google Cloud** project with Firestore, Pub/Sub, BigQuery enabled
-- API keys: `GOOGLE_API_KEY`, `GOOGLE_MAPS_API_KEY`
+## Backend Setup
 
-### Backend
+From the repository root:
 
-```bash
+```powershell
+Copy-Item backend/.env.example backend/.env
+```
+
+Edit `backend/.env` and set at least:
+
+```text
+ADMIN_API_KEY=<strong-local-admin-key>
+```
+
+For a local key in PowerShell:
+
+```powershell
+[Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(32)).ToLower()
+```
+
+Then install and run:
+
+```powershell
 cd backend
-cp .env.example .env   # Fill in your API keys
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+python -m pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
+python -m uvicorn app.main:app --reload --port 8000
 ```
 
-### Frontend
+The backend is available at `http://localhost:8000`. Health check:
 
-```bash
+```powershell
+Invoke-WebRequest -UseBasicParsing http://localhost:8000/health
+```
+
+## Frontend Setup
+
+In a second terminal:
+
+```powershell
 cd frontend
 npm install
 npm run dev
 ```
 
-The dashboard will be available at `http://localhost:5173`.
+The dashboard is available at `http://localhost:5173`.
 
-### Docker
+During local Vite development, the frontend uses `API_BASE_URL=/api`, and `frontend/vite.config.js` proxies `/api` to `http://localhost:8000`. For deployed/static builds, set:
 
-```bash
-# Copy and configure environment
-cp backend/.env.example backend/.env
-
-# Start both services
-docker-compose up --build
+```text
+VITE_BACKEND_URL=https://your-backend-url
 ```
 
-### Secret Hygiene
+Trailing slashes are removed automatically by `frontend/src/utils/constants.js`.
 
-Before committing or deploying, run the local secret scan:
+## Admin API Key
+
+Protected endpoints require the `X-API-Key` header to match `ADMIN_API_KEY`.
+
+Examples of protected endpoints:
+
+- `POST /gates/{gate_id}/signage`
+- `POST /evacuation/assess`
+- `POST /evacuation/trigger`
+- Admin-oriented agent actions exposed by backend routes
+
+The frontend stores the key in browser `sessionStorage` after the user enters it. Do not commit real keys. In production, the backend refuses to start without `ADMIN_API_KEY`.
+
+## Environment Variables
+
+Backend variables are loaded from environment variables and `backend/.env` in local development.
+
+| Variable | Required locally | Required in production | Notes |
+| --- | --- | --- | --- |
+| `ADMIN_API_KEY` | Yes for protected endpoints | Yes | Strong shared admin key for protected APIs. |
+| `APP_ENV` | No | Yes | Use `development`, `test`, or `production`. |
+| `LOG_LEVEL` | No | No | Defaults to `INFO`. |
+| `CORS_ORIGINS` | No | Yes | Comma-separated frontend origins. No wildcard in production. |
+| `GOOGLE_CLOUD_PROJECT` | No for fallback mode | Yes for GCP services | Google Cloud project ID. |
+| `GOOGLE_APPLICATION_CREDENTIALS` | No | Optional on Cloud Run | Local ADC/service-account path when needed. |
+| `GOOGLE_API_KEY` | No | Yes for Gemini | Missing locally makes orchestrator dispatch return an error response. |
+| `GOOGLE_MAPS_API_KEY` | No | Yes for live Maps routes | Missing locally returns mock pedestrian routes. |
+| `FIRESTORE_DATABASE` | No | No | Defaults to `(default)`. |
+| `PUBSUB_TOPIC` | No | No | Defaults to `crowd-telemetry`. |
+| `PUBSUB_SUBSCRIPTION` | No | No | Defaults to `crowd-telemetry-push`. |
+| `BIGQUERY_DATASET` | No | No | Defaults to `crowd_analytics`. |
+| `BIGQUERY_TABLE` | No | No | Defaults to `telemetry_events`. |
+| `GCS_BUCKET` | No | No | Reserved for archive/storage flows. |
+| `STADIUM_ID` | No | No | Defaults to `chinnaswamy_stadium`. |
+
+Frontend variables:
+
+| Variable | Required | Notes |
+| --- | --- | --- |
+| `VITE_BACKEND_URL` | Only for deployed/static frontend | Absolute backend URL. Local dev defaults to `/api`. |
+| `VITE_FIREBASE_*` | No for prototype mode | Firebase config values if live Firebase listeners are enabled. |
+| `VITE_USE_EMULATOR` | No | Set to `true` to use Firebase emulators where supported. |
+
+## Local Fallback Behavior
+
+When `APP_ENV` is not `production`:
+
+- Firestore credential/API failures fall back to an in-memory store for gates, reports, strict protocol, and evacuation state.
+- BigQuery credential/API failures disable local analytics writes and return empty query results.
+- Google Maps routes fall back to mock route data if `GOOGLE_MAPS_API_KEY` is missing.
+- Gemini orchestrator dispatch returns an error if `GOOGLE_API_KEY` is missing, but the app stays up.
+
+When `APP_ENV=production`, Firestore and BigQuery credential failures are not silently swallowed.
+
+## Docker
+
+Build only the backend image:
+
+```powershell
+docker build -t ipl-backend:local ./backend
+```
+
+Run the backend container and check health:
+
+```powershell
+docker run --rm -p 8080:8080 -e APP_ENV=development -e ADMIN_API_KEY=local-dev-key ipl-backend:local
+Invoke-WebRequest -UseBasicParsing http://localhost:8080/health
+```
+
+Run both services:
+
+```powershell
+Copy-Item backend/.env.example backend/.env
+# Edit backend/.env and set ADMIN_API_KEY.
+docker compose up -d --build
+```
+
+Then open:
+
+- Backend: `http://localhost:8000/health`
+- Frontend: `http://localhost:5173`
+
+Stop the stack:
+
+```powershell
+docker compose down
+```
+
+## Tests And Checks
+
+Backend:
+
+```powershell
+python -m pytest backend/tests -q
+python -m ruff check backend
+```
+
+Frontend:
+
+```powershell
+cd frontend
+npm run lint
+npm run test
+npm run build
+```
+
+Secret scan:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/secret_scan.ps1
 ```
 
-The scanner checks tracked and untracked, non-ignored files for common API keys, private keys, service-account material, and high-risk secret assignments. Real secrets should live in local `.env` files, Google Secret Manager, or your CI/CD secret store only. The deploy shortcut reads Cloud Run secrets from Secret Manager via `--set-secrets`; do not pass secret values on the command line.
+The scanner checks tracked and untracked non-ignored files for common API keys, private keys, service-account material, and high-risk secret assignments.
 
-If a key is exposed, rotate it immediately: disable or delete the leaked key in its provider console, create a replacement, update Google Secret Manager or local `.env`, redeploy affected services, and rerun the scanner before committing.
+## Deployment
 
-## Environment Variables
+Deployment is handled by `deploy_shortcut.ps1`.
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `GOOGLE_API_KEY` | Gemini AI API key | Yes |
-| `GOOGLE_MAPS_API_KEY` | Google Maps JavaScript API key | Yes |
-| `GOOGLE_CLOUD_PROJECT` | GCP project ID | Yes |
-| `FIRESTORE_DATABASE` | Firestore database name | No (default) |
-| `PUBSUB_TOPIC` | Pub/Sub topic for telemetry | No (default) |
-| `BIGQUERY_DATASET` | BigQuery dataset name | No (default) |
+Before first deployment, create these Google Secret Manager secrets in the configured project:
+
+```powershell
+"your-gemini-key" | gcloud secrets create GEMINI_API_KEY --data-file=- --project <project-id>
+"your-maps-key" | gcloud secrets create MAPS_API_KEY --data-file=- --project <project-id>
+"your-strong-admin-key" | gcloud secrets create ADMIN_API_KEY --data-file=- --project <project-id>
+```
+
+Then review the configuration block at the top of `deploy_shortcut.ps1`, especially:
+
+- `$PROJECT_ID`
+- `$REGION`
+- `$STADIUM_ID`
+- Firestore, Pub/Sub, BigQuery, and GCS names
+- `$BACKEND_INITIAL_CORS`
+
+Run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File deploy_shortcut.ps1
+```
+
+The deploy script:
+
+- Runs `scripts/secret_scan.ps1` first.
+- Enables required Google Cloud APIs.
+- Deploys the backend to Cloud Run with explicit app env vars.
+- Binds Gemini, Maps, and admin keys from Secret Manager.
+- Deploys the frontend with `VITE_BACKEND_URL` set to the backend URL.
+- Updates backend CORS to include the deployed frontend URL.
+
+The backend Cloud Run service is publicly reachable so the browser frontend can call it. Admin actions are still protected by `ADMIN_API_KEY`.
+
+## Key Rotation
+
+If any key is exposed:
+
+1. Disable or delete the exposed key in its provider console.
+2. Create a replacement key.
+3. Update Google Secret Manager or local `.env`.
+4. Redeploy affected services.
+5. Run `scripts/secret_scan.ps1` before committing.
 
 ## API Endpoints
 
 | Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/health` | Liveness probe |
-| `POST` | `/pubsub` | Pub/Sub push handler |
-| `POST` | `/telemetry` | Direct telemetry ingestion |
-| `GET` | `/gates` | All gate statuses |
-| `GET` | `/gates/{id}` | Single gate detail |
-| `POST` | `/gates/{id}/signage` | Update dynamic signage |
-| `POST` | `/evacuation/assess` | Run EvacuNet assessment |
-| `POST` | `/evacuation/trigger` | Force evacuation |
-| `POST` | `/agents/dispatch` | Natural language agent command |
-| `GET` | `/agents/status` | Agent system status |
-| `POST` | `/reports` | Submit field report |
-| `GET` | `/reports` | Retrieve recent reports |
+| --- | --- | --- |
+| `GET` | `/health` | Liveness probe. |
+| `POST` | `/pubsub` | Pub/Sub push handler. |
+| `POST` | `/telemetry` | Direct telemetry ingestion. |
+| `GET` | `/gates` | All gate statuses. |
+| `GET` | `/gates/{id}` | Single gate detail. |
+| `POST` | `/gates/{id}/signage` | Update dynamic signage. Requires admin key. |
+| `POST` | `/evacuation/assess` | Run EvacuNet assessment. Requires admin key. |
+| `POST` | `/evacuation/trigger` | Force evacuation. Requires admin key. |
+| `GET` | `/evacuation/status` | Current evacuation state. |
+| `POST` | `/agents/dispatch` | Natural language agent command. |
+| `GET` | `/agents/status` | Agent system status. |
+| `POST` | `/reports` | Submit field report. |
+| `GET` | `/reports` | Retrieve recent reports. |
 
-## Stadium
+## Known Limitations
 
-**M. Chinnaswamy Stadium, Bengaluru**
-- Capacity: 40,000
-- Coordinates: 12.9788°N, 77.5996°E
-- Gates: 8 (A through H)
+- This is a prototype, not a certified life-safety system.
+- The local Firestore fallback is in-memory and resets when the backend process stops.
+- BigQuery analytics are skipped locally when credentials are unavailable.
+- The WebSocket hook exists for future live updates, but the current backend does not expose a WebSocket endpoint.
+- Some Firebase values in the frontend are demo defaults unless real `VITE_FIREBASE_*` values are provided.
+- Cloud Run deployment requires real GCP credentials, enabled billing, and Secret Manager values.
+- The backend image is large because it includes PyTorch and Apache Beam/Dataflow dependencies.
 
 ## License
 

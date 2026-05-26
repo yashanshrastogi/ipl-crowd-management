@@ -1,16 +1,37 @@
-# React + Vite
+# IPL Crowd Dashboard Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React/Vite dashboard for the IPL crowd management prototype.
 
-Currently, two official plugins are available:
+## Local Development
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```powershell
+npm install
+npm run dev
+```
 
-## React Compiler
+Open `http://localhost:5173`.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+In local dev, API calls use `API_BASE_URL=/api`. Vite proxies `/api` to `http://localhost:8000`, so run the backend on port `8000`.
 
-## Expanding the ESLint configuration
+## Deployed Backend URL
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+For static or Cloud Run builds, set:
+
+```text
+VITE_BACKEND_URL=https://your-backend-url
+```
+
+The app removes a trailing slash automatically.
+
+## Checks
+
+```powershell
+npm run lint
+npm run test
+npm run build
+```
+
+## Notes
+
+- Admin endpoints require the backend `ADMIN_API_KEY`; the UI stores the entered key in `sessionStorage`.
+- Firebase config values are optional for prototype mode. Set `VITE_FIREBASE_*` values when connecting to a real Firebase project.
