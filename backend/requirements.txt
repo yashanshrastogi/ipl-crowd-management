@@ -25,3 +25,5 @@ apache-beam[gcp]==2.64.0
 
 # ── Linting / Quality ──
 ruff==0.11.12
+pytest==9.0.2
+pytest-asyncio==1.3.0
