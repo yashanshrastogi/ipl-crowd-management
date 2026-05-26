@@ -2,6 +2,14 @@
 .env
 .env.example
 .env.*
+*.pem
+*.key
+*.p12
+*.pfx
+service-account*.json
+*credentials*.json
+*.secret
+secrets/
 .venv/
 __pycache__/
 *.pyc

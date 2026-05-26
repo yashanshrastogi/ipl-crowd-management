@@ -115,6 +115,18 @@ cp backend/.env.example backend/.env
 docker-compose up --build
 ```
 
+### Secret Hygiene
+
+Before committing or deploying, run the local secret scan:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/secret_scan.ps1
+```
+
+The scanner checks tracked and untracked, non-ignored files for common API keys, private keys, service-account material, and high-risk secret assignments. Real secrets should live in local `.env` files, Google Secret Manager, or your CI/CD secret store only. The deploy shortcut reads Cloud Run secrets from Secret Manager via `--set-secrets`; do not pass secret values on the command line.
+
+If a key is exposed, rotate it immediately: disable or delete the leaked key in its provider console, create a replacement, update Google Secret Manager or local `.env`, redeploy affected services, and rerun the scanner before committing.
+
 ## Environment Variables
 
 | Variable | Description | Required |

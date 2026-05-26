@@ -8,6 +8,10 @@ $REGION = "us-central1"
 #   "your-maps-key" | gcloud secrets create MAPS_API_KEY --data-file=- --project $PROJECT_ID
 #   "your-strong-admin-key" | gcloud secrets create ADMIN_API_KEY --data-file=- --project $PROJECT_ID
 
+# Preflight: fail fast if secret-looking values are present in tracked or untracked files.
+Write-Host "--- Running local secret scan ---" -ForegroundColor Cyan
+& (Join-Path $PSScriptRoot "scripts\secret_scan.ps1")
+
 # 2. Enable APIs (One-time)
 Write-Host "--- Enabling GCP APIs for $PROJECT_ID ---" -ForegroundColor Cyan
 gcloud services enable run.googleapis.com artifactregistry.googleapis.com firestore.googleapis.com pubsub.googleapis.com bigquery.googleapis.com dataflow.googleapis.com secretmanager.googleapis.com --project $PROJECT_ID
@@ -28,15 +32,19 @@ Pop-Location
 # 4. Deploy Frontend (Direct Source Upload)
 Write-Host "--- Deploying Frontend to Cloud Run ---" -ForegroundColor Cyan
 Push-Location frontend
+$frontendBuildContext = Join-Path ([System.IO.Path]::GetTempPath()) "ipl-frontend-cloudrun-$([guid]::NewGuid().ToString('N'))"
 try {
-    $dockerfilePath = "Dockerfile"
-    $backupPath = $null
-    if (Test-Path $dockerfilePath) {
-        $backupPath = "Dockerfile.codex-backup"
-        Move-Item -LiteralPath $dockerfilePath -Destination $backupPath -Force
+    New-Item -ItemType Directory -Path $frontendBuildContext -Force | Out-Null
+
+    Get-ChildItem -Force | Where-Object {
+        $_.Name -notin @("node_modules", "dist", "dist-ssr", ".git") -and
+        $_.Name -notlike ".env*"
+    } | ForEach-Object {
+        Copy-Item -LiteralPath $_.FullName -Destination $frontendBuildContext -Recurse -Force
     }
 
-    # Create a temporary Dockerfile for the frontend to serve via node.
+    # Create a temporary Dockerfile outside the repository so deployment leaves no tracked artifacts.
+    $dockerfilePath = Join-Path $frontendBuildContext "Dockerfile"
     @"
 FROM node:20-slim
 WORKDIR /app
@@ -45,21 +53,18 @@ RUN npm install && npm run build
 RUN npm install -g serve@14.2.4
 EXPOSE 8080
 CMD ["serve", "-s", "dist", "-l", "8080"]
-"@ | Out-File -FilePath $dockerfilePath -Encoding utf8
+"@ | Out-File -FilePath $dockerfilePath -Encoding utf8 -NoNewline
 
     gcloud run deploy ipl-frontend `
-        --source . `
+        --source $frontendBuildContext `
         --region $REGION `
         --project $PROJECT_ID `
         --allow-unauthenticated `
         --set-env-vars="VITE_BACKEND_URL=$BACKEND_URL"
 }
 finally {
-    if (Test-Path $dockerfilePath) {
-        Remove-Item -LiteralPath $dockerfilePath -Force
-    }
-    if ($backupPath -and (Test-Path $backupPath)) {
-        Move-Item -LiteralPath $backupPath -Destination $dockerfilePath -Force
+    if (Test-Path $frontendBuildContext) {
+        Remove-Item -LiteralPath $frontendBuildContext -Recurse -Force
     }
     Pop-Location
 }

@@ -12,11 +12,18 @@ venv/
 
 # Environment & Secrets
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+!backend/.env.example
+!frontend/.env.example
 *.pem
 *.key
+*.p12
+*.pfx
 service-account*.json
+*credentials*.json
+*.secret
+secrets/
 
 # Node / Frontend
 node_modules/
